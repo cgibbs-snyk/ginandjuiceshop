@@ -1,4 +1,6 @@
-on: []
+on: 
+release:
+    types: [published]
 name: "Tests"
 permissions:
   contents: read
