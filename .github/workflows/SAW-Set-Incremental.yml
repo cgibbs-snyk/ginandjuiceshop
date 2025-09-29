@@ -1,21 +1,21 @@
 name: Probely Incremental Scan
 
 on:
-push:
-branches: [ "main" ]
-pull_request:
-branches: [ "main" ]
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
 
 workflow_dispatch:
 
 jobs:
-build:
-runs-on: ubuntu-latest
-env:
+  build:
+    runs-on: ubuntu-latest
+  env:
 # The PROBELY_API_KEY variable is MANDATORY for the CLI
-PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}
+    PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}
 
-TARGET_ID: ${{ vars.TARGET_ID }}
+    TARGET_ID: ${{ vars.TARGET_ID }}
 
 steps:
   # Step 1: Install Probely CLI and jq
