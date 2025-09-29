@@ -33,14 +33,46 @@ jobs:
           echo "SCAN_ID=$SCAN_ID" >> $GITHUB_ENV
       
         
-      # Step 4: Optional logic - abort the pipeline if there are any HIGH risk vulnerabilities.
-      - name: Check for High risk vulnerabilities
+      # Step 4: Abort the pipeline immediately if the first HIGH risk vulnerability is found.
+      - name: Fail on First High Risk Vulnerability
         run: |
-          HIGH_VULNS=$(probely scans get "$SCAN_ID" -o JSON | jq -r '.highs')
-          echo "HIGH risk vulnerabilities: $HIGH_VULNS"
-      
-          if [[ "$HIGH_VULNS" -gt 0 ]]; then
-            echo "Scan has high risk vulnerabilities. Failing pipeline."
-            exit 1
-          else
+          SCAN_ID="${{ env.SCAN_ID }}"
+          SCAN_STATUS="running"
+          
+          echo "Starting continuous check for Scan ID: $SCAN_ID"
+          echo "Will fail immediately upon finding the first high-risk vulnerability, regardless of scan status."
+
+          # Loop continues until scan is finished, failed, or a high is found.
+          while [ "$SCAN_STATUS" != "finished" ] && [ "$SCAN_STATUS" != "failed" ]; do
+            
+            echo "--- Checking scan results (Waiting 30 seconds...) ---"
+            
+            # 1. Wait for 30 seconds before the next check
+            sleep 30
+            
+            # 2. Get the current scan status and findings count
+            SCAN_DATA=$(probely scans get "$SCAN_ID" -o JSON)
+            SCAN_STATUS=$(echo "$SCAN_DATA" | jq -r '.status')
+            # Use 'tonumber' to safely convert 'null' (when running) to 0 for comparison
+            HIGH_VULNS=$(echo "$SCAN_DATA" | jq -r '.highs | tonumber')
+            
+            echo "Current Status: $SCAN_STATUS. High Risk Vulnerabilities found so far: $HIGH_VULNS"
+            
+            # 3. IMMEDIATE CHECK: Check for high vulnerabilities
+            # This check runs even if the scan is still in the 'running' status.
+            if [ "$HIGH_VULNS" -gt 0 ]; then
+              echo "🚨 High risk vulnerabilities ($HIGH_VULNS) detected! Failing pipeline immediately."
+              exit 1 # Fails the GitHub Action step
+            fi
+
+            # 4. Check for scan failure, and exit gracefully if it finishes clean
+            if [ "$SCAN_STATUS" == "failed" ]; then
+              echo "❌ Scan failed during execution. Failing pipeline."
+              exit 1
+            elif [ "$SCAN_STATUS" == "finished" ]; then
+              # This only runs if the loop condition is met (finished) and no highs were found.
+              echo "✅ Scan finished successfully. No high risk vulnerabilities found."
+            fi
+            
+          done
             echo "No high risk vulnerabilities found.
