@@ -22,7 +22,20 @@ jobs:
           pip install probely
           # Test probely GET TARGETS
           probely targets get --api-key ${{ secrets.PROBELY_API_KEY }}
-      
+
+      - name: Configure Incremental Scan and Start
+        # Use the pipe '|' for multi-line shell scripts for robustness.
+        run: |
+          TARGET_ID="${{ env.TARGET_ID }}" # Ensure the variable is pulled into the script scope
+          
+          # 1. Create a temporary YAML file with the incremental setting
+          echo 'incremental: true' > /tmp/probely_settings.yaml
+          
+          # 2. Update the target's settings to enable incremental scan
+          # The -f flag specifies the file to read the settings from.
+          probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml
+          
+                
       # Step 2: Start Scan
       - name: Start Scan
         run: |
