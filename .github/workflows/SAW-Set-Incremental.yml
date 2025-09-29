@@ -13,6 +13,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}  
+      TARGET_ID: ${{ vars.TARGET_ID }}
 
     steps:
       # Step 1: Install Probely CLI edit
