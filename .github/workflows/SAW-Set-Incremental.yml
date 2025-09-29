@@ -1,6 +1,6 @@
-# Set Incremental Scan Type
+# incremental
 
-name: Incremental Snyk API & Web CICD Scan
+name: Inc CICD Scan
 
 on:
   push:
@@ -22,9 +22,8 @@ jobs:
           pip install probely
           # Test probely GET TARGETS
           probely targets get --api-key ${{ secrets.PROBELY_API_KEY }}
-      
-      # Step 2: Set Inremental
-     - name: Configure Incremental Scan and Start
+
+- name: Configure Incremental Scan and Start
         # Use the pipe '|' for multi-line shell scripts for robustness.
         run: |
           TARGET_ID="${{ env.TARGET_ID }}" # Ensure the variable is pulled into the script scope
@@ -36,26 +35,7 @@ jobs:
           # The -f flag specifies the file to read the settings from.
           probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml
           
-          
-          
-      # Step 3: Start Scan
-      - name: Start Scan
-        run: |
-          for i in {1..20}; do
-            echo "-----------------------------------"
-            SCAN_ID=$(probely targets start-scan ${{ vars.TARGET_ID }} -o IDS_ONLY --api-key ${{ secrets.PROBELY_API_KEY }})
-            echo ${SCAN_ID}
-            if [ -f ${SCAN_ID} ]; then
-              echo "Scan didn't start... Retry start-scan"
-            else
-              echo "Scan started with SCAN ID: ${SCAN_ID}";
-              echo "SCAN_ID=${SCAN_ID}" >> $GITHUB_ENV
-              break;
-            fi
-            sleep 5
-          done
-
-      # Step 4: Set back to full
-      - name: set back to full
-        run: |
-          echo 'incremental: false' > /tmp/yaml_file.yaml && probely targets update <TARGET_ID> -f /tmp/yaml_file.yaml
+          # 3. Start the scan on the updated target
+          probely targets start-scan "$TARGET_ID"
+      
+     
