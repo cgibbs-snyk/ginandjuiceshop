@@ -1,69 +1,100 @@
-# Incremental scan
-
-name: Snyk API & Web Incremental Scan
+name: Probely Incremental Scan
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+push:
+branches: [ "main" ]
+pull_request:
+branches: [ "main" ]
 
-  workflow_dispatch:
+workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
-    env:
-      PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}  
-      TARGET_ID: ${{ vars.TARGET_ID }}
+build:
+runs-on: ubuntu-latest
+env:
+# The PROBELY_API_KEY variable is MANDATORY for the CLI
+PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}
 
-    steps:
-      # Step 1: Install Probely CLI edit
-      - name: Install Probely CLI
-        run: |
-          # Install Probely CLI
-          pip install probely
-          # Test probely GET TARGETS
-          probely targets get --api-key ${{ secrets.PROBELY_API_KEY }}
+TARGET_ID: ${{ vars.TARGET_ID }}
+
+steps:
+  # Step 1: Install Probely CLI and jq
+  - name: Install Probely CLI and Dependencies
+    run: |
+      # Install Probely CLI using the environment's API Key
+      pip install probely
+      # Confirm access is working (optional but good for debugging)
+      probely targets get
+
+  # Step 2: Configure Target for Incremental Scan
+  - name: Configure Target for Incremental Scan
+    run: |
+      TARGET_ID="${{ env.TARGET_ID }}"
       
-      # Step 2: Inc
-      - name: Configure Incremental Scan 
-        # Use the pipe '|' for multi-line shell scripts for robustness.
-        run: |
-          TARGET_ID="${{ env.TARGET_ID }}" # Ensure the variable is pulled into the script scope
-          
-          # 1. Create a temporary YAML file with the incremental setting
-          echo 'incremental: true' > /tmp/probely_settings.yaml
-          
-          # 2. Update the target's settings to enable incremental scan
-          # The -f flag specifies the file to read the settings from.
-          probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml          
-                
-      # Step 3: Start Scan
-      - name: Start Scan
-        run: |
-          for i in {1..20}; do
-            echo "-----------------------------------"
-            SCAN_ID=$(probely targets start-scan ${{ vars.TARGET_ID }} -o IDS_ONLY --api-key ${{ secrets.PROBELY_API_KEY }})
-            echo ${SCAN_ID}
-            if [ -f ${SCAN_ID} ]; then
-              echo "Scan didn't start... Retry start-scan"
-            else
-              echo "Scan started with SCAN ID: ${SCAN_ID}";
-              echo "SCAN_ID=${SCAN_ID}" >> $GITHUB_ENV
-              break;
-            fi
-            sleep 5
-          done
-      # Step 4: Inc
-      - name: Disable Incremental Scan 
-        # Use the pipe '|' for multi-line shell scripts for robustness.
-        run: |
-          TARGET_ID="${{ env.TARGET_ID }}" # Ensure the variable is pulled into the script scope
-          
-          # 1. Create a temporary YAML file with the incremental setting
-          echo 'incremental: false' > /tmp/probely_settings.yaml
-          
-          # 2. Update the target's settings to disable incremental scan
-          # The -f flag specifies the file to read the settings from.
-          probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml
+      # Create a temporary YAML file to set incremental to true
+      echo 'incremental: true' > /tmp/probely_settings.yaml
+      
+      # Update the target's settings using the environment variable authentication
+      probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml
+
+  # Step 3: Start Scan and Capture ID
+  - name: Start Scan and Capture ID
+    run: |
+      TARGET_ID="${{ env.TARGET_ID }}"
+      # Start a scan and capture the new Scan ID (which is the command's output)
+      # NOTE: Authentication is inherited from the PROBELY_API_KEY environment variable.
+      SCAN_ID=$(probely targets start-scan "$TARGET_ID")
+      
+      echo "Started Scan ID: $SCAN_ID"
+      echo "SCAN_ID=$SCAN_ID" >> $GITHUB_ENV
+  
+  # Step 4: Check for High Risk Vulnerabilities (Fail-Fast Polling)
+  # This loop polls every 30 seconds and fails immediately if HIGH findings are found.
+  - name: Fail on First High Risk Vulnerability
+    run: |
+      SCAN_ID="${{ env.SCAN_ID }}"
+      SCAN_STATUS="running"
+      
+      echo "Starting fail-fast check for Scan ID: $SCAN_ID"
+
+      while [ "$SCAN_STATUS" != "finished" ] && [ "$SCAN_STATUS" != "failed" ]; do
+        
+        echo "--- Checking scan results (Waiting 30 seconds...) ---"
+        sleep 30
+        
+        SCAN_DATA=$(probely scans get "$SCAN_ID" -o JSON)
+        SCAN_STATUS=$(echo "$SCAN_DATA" | jq -r '.status')
+        
+        # Use 'tonumber' to safely convert 'null' (when running) to 0 for comparison
+        HIGH_VULNS=$(echo "$SCAN_DATA" | jq -r '.highs | tonumber')
+        
+        echo "Current Status: $SCAN_STATUS. High Risk Vulnerabilities found so far: $HIGH_VULNS"
+        
+        # IMMEDIATE FAIL CHECK
+        if [ "$HIGH_VULNS" -gt 0 ]; then
+          echo "🚨 High risk vulnerabilities ($HIGH_VULNS) detected! Failing pipeline immediately."
+          exit 1 
+        fi
+
+        # Check for scan failure, or exit loop if finished clean
+        if [ "$SCAN_STATUS" == "failed" ]; then
+          echo "❌ Scan failed during execution. Failing pipeline."
+          exit 1
+        elif [ "$SCAN_STATUS" == "finished" ]; then
+          echo "✅ Scan finished successfully. No high risk vulnerabilities found."
+        fi
+        
+      done
+      
+  # Step 5: Disable Incremental Scan
+  - name: Disable Incremental Scan
+    # This step uses 'if: always()' to ensure it runs even if Step 4 fails
+    if: always()
+    run: |
+      TARGET_ID="${{ env.TARGET_ID }}"
+      
+      # 1. Create temporary YAML file to set incremental to false
+      echo 'incremental: false' > /tmp/probely_settings_disable.yaml
+      
+      # 2. Update the target's settings to disable incremental scan
+      probely targets update "$TARGET_ID" -f /tmp/probely_settings_disable.yaml
