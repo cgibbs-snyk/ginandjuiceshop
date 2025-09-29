@@ -1,4 +1,4 @@
-name: Snyk API & Web CICD Scan Block
+name: Probely Scan Block
 
 on:
   push:
@@ -16,38 +16,30 @@ jobs:
       TARGET_ID: ${{ vars.TARGET_ID }}
 
     steps:
-      # Step 1: Install Probely CLI
+      # Step 1: Install Probely CLI and necessary tools
       - name: Install Probely CLI
         run: |
           # Install Probely CLI
           pip install probely
-          # Get a list of targets
+          # Install jq for JSON processing (already present on GitHub runners, but good practice)
+          # sudo apt-get install -y jq  # Uncomment if running on a non-standard image
           probely targets get
-      # Step 2: Start scan with scan ID
+
+      # Step 2: Start scan and capture the newly created Scan ID
       - name: Start Scan
         run: |
-          # Start a scan with Target ID variable and save Scan ID
-          probely targets start-scan $TARGET_ID
-          # Get Scan ID
-          SCAN_ID=$(probely scans get --f-target $TARGET_ID -o JSON | jq -r '.[0].id')
+          # Start a scan and capture the new Scan ID (which is the command's output)
+          SCAN_ID=$(probely targets start-scan $TARGET_ID)
+          echo "Started Scan ID: $SCAN_ID"
           echo "SCAN_ID=$SCAN_ID" >> $GITHUB_ENV
       
-      # Step 4: Optional logic - abort the pipeline if there are any HIGH risk vulnerabilities.
+      # Step 3: Check for High risk vulnerabilities and wait for scan to finish
       - name: Check for High risk vulnerabilities
+        # probely scans check-findings waits for the scan to finish and
+        # exits with a non-zero code (failing the pipeline) if high-risk findings > 0.
         run: |
-# Check the scan
-          while true; do
-            echo "-----------------------------------"
-          HIGH_VULNS=$(probely scans get "$SCAN_ID" -o JSON | jq -r '.highs')
-          echo "HIGH risk vulnerabilities: $HIGH_VULNS"
-            if [[ "$HIGH_VULNS" -gt 0 ]]; then
-            echo "Scan has high risk vulnerabilities. Failing pipeline."
-            exit 1
-          else
-            echo "No high risk vulnerabilities found."
-          fi
-            sleep 30;
-          done
-          
+          echo "Waiting for Scan ID $SCAN_ID to finish and checking for high risk findings..."
+          # You can add --max-highs 0 to explicitly state the limit, but 0 is the default.
+          probely scans check-findings "$SCAN_ID"
       
           
