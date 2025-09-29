@@ -1,4 +1,4 @@
-name: Snyk API & Web CICD Scan Block
+name: Snyk API & Web CICD Scan Blocking
 
 on:
   push:
