@@ -6,7 +6,14 @@ on:
   pull_request:
     branches: [ "main" ]
 
-workflow_dispatch:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}
+      TARGET_ID: ${{ vars.TARGET_ID }}
 
 jobs:
   build:
