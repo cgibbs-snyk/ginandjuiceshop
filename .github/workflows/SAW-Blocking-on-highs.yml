@@ -1,6 +1,12 @@
-name: Snyk API & Web CICD Scan
+name: Snyk API & Web CICD Scan Block
 
-on: workflow_dispatch
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+  workflow_dispatch:
 
 jobs:
   build:
