@@ -11,13 +11,6 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}
-      TARGET_ID: ${{ vars.TARGET_ID }}
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
   env:
 # The PROBELY_API_KEY variable is MANDATORY for the CLI
     PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}
