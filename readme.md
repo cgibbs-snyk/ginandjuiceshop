@@ -1,3 +1,5 @@
+[test nudge]
+
 ![MultiJuicer, Multi User Juice Shop Platform](./images/multijuicer-cover.svg)
 
 Running CTFs and Security Trainings with [OWASP Juice Shop](https://github.com/bkimminich/juice-shop) is usually quite tricky, Juice Shop just isn't intended to be used by multiple users at a time.
