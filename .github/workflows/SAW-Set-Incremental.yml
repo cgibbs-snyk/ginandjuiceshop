@@ -24,12 +24,16 @@ jobs:
           probely targets get --api-key ${{ secrets.PROBELY_API_KEY }}
       
       # Step 2: Configure Target for Incremental Scan
-  - name: Configure Target for Incremental Scan
-    run: |
-      TARGET_ID="${{ env.TARGET_ID }}"
+      - name: Configure Target for Incremental Scan
+        run: |
+          TARGET_ID="${{ env.TARGET_ID }}"
       
       # Create a temporary YAML file to set incremental to true
       echo 'incremental: true' > /tmp/probely_settings.yaml
       
       # Update the target's settings using the environment variable authentication
       probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml
+         
+            fi
+            sleep 5
+          done
