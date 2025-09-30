@@ -42,9 +42,9 @@ jobs:
       #  run: |
       #    TARGET_ID="${{ env.TARGET_ID }}"
 
-          # 1. Create temporary YAML file to set incremental to false
+      #    # 1. Create temporary YAML file to set incremental to false
       #    echo 'incremental: false' > /tmp/probely_settings_disable.yaml
 
-          # 2. Update the target's settings to disable incremental scan
+      #    # 2. Update the target's settings to disable incremental scan
       #    probely targets update "$TARGET_ID" -f /tmp/probely_settings_disable.yaml
       #    echo "Incremental scan flag reset"
