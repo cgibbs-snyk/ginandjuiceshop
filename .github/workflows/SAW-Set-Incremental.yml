@@ -1,6 +1,6 @@
-# Incremental
+# Remote App in non-blocking mode.gd
 
-name: Incremental Snyk API & Web CICD Scan
+name: Snyk API & Web CICD Scan
 
 on:
   push:
@@ -23,9 +23,13 @@ jobs:
           # Test probely GET TARGETS
           probely targets get --api-key ${{ secrets.PROBELY_API_KEY }}
       
-      # Step 2: Start Scan
-      - name: Start Scan
-        run: |
-          echo 'incremental: true' > /tmp/yaml_file.yaml && probely targets update <TARGET_ID> -f /tmp/yaml_file.yaml && probely targets start-scan <TARGET_ID>
-          
-          
+      # Step 2: Configure Target for Incremental Scan
+  - name: Configure Target for Incremental Scan
+    run: |
+      TARGET_ID="${{ env.TARGET_ID }}"
+      
+      # Create a temporary YAML file to set incremental to true
+      echo 'incremental: true' > /tmp/probely_settings.yaml
+      
+      # Update the target's settings using the environment variable authentication
+      probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml
