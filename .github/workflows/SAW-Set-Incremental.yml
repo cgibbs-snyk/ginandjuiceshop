@@ -1,39 +1,51 @@
-# Remote App in non-blocking mode.gd
-
-name: Snyk API & Web CICD Scan
+name: Probely Incremental Scan Configuration
 
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+push:
+branches: [ "main" ]
+pull_request:
+branches: [ "main" ]
 
-  workflow_dispatch:
+workflow_dispatch:
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+build:
+runs-on: ubuntu-latest
+env:
+# The PROBELY_API_KEY variable is MANDATORY for the CLI
+PROBELY_API_KEY: ${{ secrets.PROBELY_API_KEY }}
+TARGET_ID: ${{ vars.TARGET_ID }}
 
-    steps:
-      # Step 1: Install Probely CLI edit
-      - name: Install Probely CLI
-        run: |
-          # Install Probely CLI
-          pip install probely
-          # Test probely GET TARGETS
-          probely targets get --api-key ${{ secrets.PROBELY_API_KEY }}
+steps:
+  # Step 1: Install Probely CLI
+  - name: Install Probely CLI
+    run: |
+      # Install Probely CLI
+      pip install probely
+      # Test authentication setup
+      probely targets get
+
+  # Step 2: Configure Target: Set Incremental Scan ON
+  - name: Set Incremental Scan Flag (ON)
+    run: |
+      TARGET_ID="${{ env.TARGET_ID }}"
       
-      # Step 2: Configure Target for Incremental Scan
-      - name: Configure Target for Incremental Scan
-        run: |
-          TARGET_ID="${{ env.TARGET_ID }}"
+      # 1. Create a temporary YAML file to set incremental to true
+      echo 'incremental: true' > /tmp/probely_settings_on.yaml
       
-      # Create a temporary YAML file to set incremental to true
-      echo 'incremental: true' > /tmp/probely_settings.yaml
+      # 2. Update the target's settings
+      probely targets update "$TARGET_ID" -f /tmp/probely_settings_on.yaml
+      echo "Incremental scan flag set to TRUE on Target ID: $TARGET_ID"
+
+  # Step 3: Configure Target: Set Incremental Scan OFF (Cleanup)
+  # This step ensures the target setting is reset after the workflow finishes.
+  - name: Set Incremental Scan Flag (OFF)
+    run: |
+      TARGET_ID="${{ env.TARGET_ID }}"
       
-      # Update the target's settings using the environment variable authentication
-      probely targets update "$TARGET_ID" -f /tmp/probely_settings.yaml
-         
-            fi
-            sleep 5
-          done
+      # 1. Create temporary YAML file to set incremental to false
+      echo 'incremental: false' > /tmp/probely_settings_disable.yaml
+      
+      # 2. Update the target's settings to disable incremental scan
+      probely targets update "$TARGET_ID" -f /tmp/probely_settings_disable.yaml
+      echo "Incremental scan flag reset to FALSE on Target ID: $TARGET_ID"
