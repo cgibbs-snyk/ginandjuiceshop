@@ -37,14 +37,14 @@ jobs:
 
       # Step 3: Configure Target: Set Incremental Scan OFF (Cleanup)
       # Ensures the target setting is reset after the workflow finishes.
-      - name: Set Incremental Scan Flag (OFF)
-        if: always()
-        run: |
-          TARGET_ID="${{ env.TARGET_ID }}"
+      #- name: Set Incremental Scan Flag (OFF)
+      #  if: always()
+      #  run: |
+      #    TARGET_ID="${{ env.TARGET_ID }}"
 
           # 1. Create temporary YAML file to set incremental to false
-          echo 'incremental: false' > /tmp/probely_settings_disable.yaml
+      #    echo 'incremental: false' > /tmp/probely_settings_disable.yaml
 
           # 2. Update the target's settings to disable incremental scan
-          probely targets update "$TARGET_ID" -f /tmp/probely_settings_disable.yaml
-          echo "Incremental scan flag reset 
+      #    probely targets update "$TARGET_ID" -f /tmp/probely_settings_disable.yaml
+      #    echo "Incremental scan flag reset"
