@@ -1,4 +1,4 @@
-name: Probely Incremental Scan Configurationffff
+name: Probely Incremental Scan Configuration
 
 on:
   push:
