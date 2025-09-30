@@ -1,6 +1,6 @@
-# Remote App in non-blocking mode.gd
+# Incremental
 
-name: Snyk API & Web CICD Scan
+name: Incremental Snyk API & Web CICD Scan
 
 on:
   push:
@@ -26,5 +26,6 @@ jobs:
       # Step 2: Start Scan
       - name: Start Scan
         run: |
-          echo 'incremental: true' > /tmp/yaml_file.yaml && probely targets update <TARGET_ID> -f /tmp/yaml_file.yaml && probely targets start-scan <TARGET_ID> 
+          echo 'incremental: true' > /tmp/yaml_file.yaml && probely targets update <TARGET_ID> -f /tmp/yaml_file.yaml && probely targets start-scan <TARGET_ID>
+          
           
