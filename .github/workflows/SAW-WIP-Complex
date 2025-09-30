@@ -1,0 +1,137 @@
+name: Snyk DAST Scans (Probely)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  dast:
+    runs-on: ubuntu-latest
+    env:
+      PROBELY_API_TOKEN: ${{ secrets.PROBELY_API_TOKEN }}
+      TARGET_ID: ${{ vars.SNYK_TARGET_ID }} # or use vars.TARGET_ID if you prefer
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install Probely CLI and jq
+        run: |
+          pip install probely-cli
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Create scan configuration
+        run: |
+          cat > scan-config.yaml << 'EOF'
+          scan_profile: lightning
+          incremental: true
+          EOF
+
+      - name: Trigger Probely DAST scan via CLI
+        id: trigger
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCAN_RESPONSE=$(probely targets start-scan "$TARGET_ID" \
+            --api-key "$PROBELY_API_TOKEN" \
+            -f scan-config.yaml \
+            -o JSON)
+
+          echo "$SCAN_RESPONSE" | jq .
+          SCAN_ID=$(echo "$SCAN_RESPONSE" | jq -r '.id // empty')
+
+          if [[ -n "${SCAN_ID}" ]]; then
+            echo "Triggered scan with ID: ${SCAN_ID}"
+            echo "LATEST_SCAN_ID=${SCAN_ID}" >> "${GITHUB_ENV}"
+            echo "scan_id=${SCAN_ID}" >> "${GITHUB_OUTPUT}"
+          else
+            echo "Scan triggered successfully via CLI (no ID returned)."
+          fi
+
+      - name: Get latest scan report via CLI
+        id: capture-report
+        shell: bash
+        run: |
+          set -euo pipefail
+          # If we already have LATEST_SCAN_ID from previous step, try to fetch that specific one.
+          if [[ -n "${LATEST_SCAN_ID:-}" ]]; then
+            LATEST_SCAN_DATA=$(probely scans get \
+              --api-key "$PROBELY_API_TOKEN" \
+              -o JSON | jq -r ".results[] | select(.id==\"$LATEST_SCAN_ID\")")
+          else
+            # Fallback: get the most recent scan
+            LATEST_SCAN_DATA=$(probely scans get \
+              --api-key "$PROBELY_API_TOKEN" \
+              -o JSON | jq -r '.results[0]')
+          fi
+
+          if [[ -z "${LATEST_SCAN_DATA}" || "${LATEST_SCAN_DATA}" == "null" ]]; then
+            echo "Could not fetch latest scan data"
+            exit 1
+          fi
+
+          LATEST_SCAN_ID=$(echo "$LATEST_SCAN_DATA" | jq -r '.id')
+          SCAN_PROFILE=$(echo "$LATEST_SCAN_DATA" | jq -r '.scan_profile')
+          INCREMENTAL=$(echo "$LATEST_SCAN_DATA" | jq -r '.incremental')
+          LOWS=$(echo "$LATEST_SCAN_DATA" | jq -r '.lows')
+          MEDIUMS=$(echo "$LATEST_SCAN_DATA" | jq -r '.mediums')
+          HIGHS=$(echo "$LATEST_SCAN_DATA" | jq -r '.highs')
+          SCAN_STATUS=$(echo "$LATEST_SCAN_DATA" | jq -r '.status')
+
+          echo "Latest Scan Report"
+          echo "Scan ID:       $LATEST_SCAN_ID"
+          echo "Status:        $SCAN_STATUS"
+          echo "Profile:       $SCAN_PROFILE"
+          echo "Incremental:   $INCREMENTAL"
+          echo "Vulnerabilities:"
+          echo "  Low:         $LOWS"
+          echo "  Medium:      $MEDIUMS"
+          echo "  High:        $HIGHS"
+
+          # Persist for subsequent steps (env and output)
+          echo "LATEST_SCAN_ID=${LATEST_SCAN_ID}" >> "${GITHUB_ENV}"
+          echo "latest_id=${LATEST_SCAN_ID}" >> "${GITHUB_OUTPUT}"
+
+      - name: Get detailed findings via CLI
+        if: ${{ steps.capture-report.outputs.latest_id != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Retrieving detailed findings..."
+          LATEST_SCAN_ID="${{ steps.capture-report.outputs.latest_id }}"
+
+          probely findings get \
+            --api-key "$PROBELY_API_TOKEN" \
+            --f-scans "$LATEST_SCAN_ID" \
+            --f-severity HIGH \
+            -o JSON > high-findings.json
+
+          probely findings get \
+            --api-key "$PROBELY_API_TOKEN" \
+            --f-scans "$LATEST_SCAN_ID" \
+            --f-severity MEDIUM \
+            -o JSON > medium-findings.json
+
+          probely findings get \
+            --api-key "$PROBELY_API_TOKEN" \
+            --f-scans "$LATEST_SCAN_ID" \
+            --f-severity LOW \
+            -o JSON > low-findings.json
+
+          HIGH_COUNT=$(jq '.results | length' high-findings.json)
+          MEDIUM_COUNT=$(jq '.results | length' medium-findings.json)
+          LOW_COUNT=$(jq '.results | length' low-findings.json)
+
+          echo "Detailed Findings Summary:"
+          echo "  High severity:   $HIGH_COUNT findings"
+          echo "  Medium severity: $MEDIUM_COUNT findings"
+          echo "  Low severity:    $LOW_COUNT findings"
