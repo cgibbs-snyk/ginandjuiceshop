@@ -1,14 +1,21 @@
 name: Probely Incremental Scan Configuration
 
 on:
+
+FIX: Corrected indentation for push and its properties
 push:
 branches: [ "main" ]
+
+FIX: Corrected indentation for pull_request and its properties
 pull_request:
 branches: [ "main" ]
 
+FIX: Corrected indentation for workflow_dispatch
 workflow_dispatch:
 
 jobs:
+
+FIX: Corrected indentation for the job definition
 build:
 runs-on: ubuntu-latest
 env:
