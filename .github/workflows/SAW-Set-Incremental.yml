@@ -22,11 +22,8 @@ jobs:
           pip install probely
           # Test probely GET TARGETS
           probely targets get --api-key ${{ secrets.PROBELY_API_KEY }}
-
-      # Step 2: Set Target scan to incremental
-      echo 'incremental: true' > /tmp/yaml_file.yaml && probely targets update <TARGET_ID> -f /tmp/yaml_file.yaml && probely targets start-scan <TARGET_ID>       
       
-      # Step 3: Start Scan
+      # Step 2: Start Scan
       - name: Start Scan
         run: |
           for i in {1..20}; do
