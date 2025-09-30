@@ -15,19 +15,12 @@ jobs:
       TARGET_ID: ${{ vars.SNYK_TARGET_ID }} # or use vars.TARGET_ID if you prefer
 
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.x'
-
-      - name: Install Probely CLI and jq
+      - name: Install Probely CLI 
         run: |
-          pip install probely-cli
-          sudo apt-get update -y
-          sudo apt-get install -y jq
+          # Install Probely CLI
+          pip install probely
+          # Get a list of targets
+          probely targets get
 
       - name: Create scan configuration
         run: |
